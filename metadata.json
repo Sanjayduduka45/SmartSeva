@@ -1,0 +1,6 @@
+{
+  "name": "SmartSeva",
+  "description": "Government service preparation and document readiness portal",
+  "requestFramePermissions": ["geolocation"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
