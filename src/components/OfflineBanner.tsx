@@ -24,7 +24,11 @@ export const OfflineBanner: React.FC = () => {
   if (!isOffline) return null;
 
   return (
-    <div className="bg-amber-600 text-white text-xs font-semibold px-4 py-2 flex items-center justify-center gap-2 shadow-sm sticky top-0 z-50">
+    <div
+      role="status"
+      aria-live="polite"
+      className="bg-amber-600 text-white text-xs font-semibold px-4 py-2 flex items-center justify-center gap-2 shadow-sm sticky top-0 z-50"
+    >
       <span className="material-symbols-outlined text-base">wifi_off</span>
       <span>{t('offline_banner') || "You're offline. Some SmartSeva features need an internet connection."}</span>
     </div>

@@ -27,9 +27,12 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
             </button>
             <h1 className="font-bold text-xl text-[#001e40]">Notifications</h1>
           </div>
-          <span className="text-xs font-semibold text-[#005db6] cursor-pointer hover:underline">
+          <button
+            type="button"
+            className="text-xs font-semibold text-[#005db6] hover:underline min-h-[36px] px-2 rounded-lg focus:ring-2 focus:ring-[#005db6] focus:outline-none"
+          >
             Mark all read
-          </span>
+          </button>
         </div>
       </header>
 

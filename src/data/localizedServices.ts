@@ -380,7 +380,7 @@ export const FULL_SERVICES_CATALOG: ServiceItem[] = [
     processingTime: '3-5 Days',
     eligibility: 'Citizens aged 18 to 40 years with monthly income under ₹15,000.',
     benefits: [
-      'Guaranteed monthly pension after age 60',
+      'Fixed monthly pension after age 60',
       'Co-contribution options for eligible subscribers',
       'Financial security for family'
     ],

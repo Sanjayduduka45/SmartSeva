@@ -93,7 +93,7 @@ export const HelpSupportScreen: React.FC<HelpSupportScreenProps> = ({ onBack }) 
           </p>
           <div className="flex justify-center gap-3">
             <a
-              href="mailto:support@smartseva.gov.in"
+              href="mailto:support@smartseva.portal"
               className="px-4 py-2 bg-white border border-[#c3c6d1] rounded-xl text-xs font-bold text-[#001e40] hover:bg-[#dfe9fa] transition-colors"
             >
               Email Support

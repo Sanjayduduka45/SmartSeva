@@ -194,3 +194,42 @@ Returns paginated historical preparation logs for the authenticated citizen.
 - `GET /api/locations/states` - Returns supported Indian states (`Cache-Control: public, max-age=3600`)
 - `GET /api/locations/districts?state=Telangana` - Returns districts for state (`Cache-Control: public, max-age=3600`)
 - `GET /api/locations/cities?state=Telangana&district=Hyderabad` - Returns cities for district (`Cache-Control: public, max-age=3600`)
+
+---
+
+## 6. AI Civic Guidance (Gemini Flash + Deterministic Guardrails)
+
+### `POST /api/ai/guidance`
+Provides server-side intelligent civic preparation guidance using Gemini 2.5 Flash with deterministic departmental fallback. Rate-limited to 20 requests per minute per IP.
+
+#### Request Body:
+```json
+{
+  "service_id": "driving-license",
+  "query": "Do I need physical presence for learner licence test?"
+}
+```
+
+#### Response:
+```json
+{
+  "status": "success",
+  "serviceId": "driving-license",
+  "serviceTitle": "New Driving Licence",
+  "advice": "Physical verification is required at the driving test track for permanent licence endorsement. Ensure your Learner's Licence is valid and carry original identity proof.",
+  "source": "ai",
+  "guidelines": {
+    "requiredDocuments": ["Learner's Licence", "Age Proof", "Address Proof", "Passport Photo", "Medical Certificate"],
+    "processingTime": "7-10 Days",
+    "eligibility": "Citizens aged 18+ with valid learner's permit."
+  }
+}
+```
+
+---
+
+## 7. System Health & Readiness Probes
+
+- `GET /health` or `GET /api/health`
+- Response: `{"status": "ok", "service": "SmartSeva Production API", "timestamp": "...", "uptime": 12.34}`
+

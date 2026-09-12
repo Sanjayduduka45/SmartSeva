@@ -210,43 +210,6 @@ export const NearbyOfficesScreen: React.FC<NearbyOfficesScreenProps> = ({
     setLocationState(result);
   };
 
-  /**
-   * Simulation handlers for demo/testing environments (e.g., iframe permission restrictions)
-   */
-  const handleSimulateGpsSuccess = () => {
-    setSelectedOption('gps');
-    setIsLocationConfirmed(false);
-    setLocationState(locationService.normalizeLocation({
-      method: 'gps',
-      latitude: 17.9784,
-      longitude: 79.5941,
-      city: 'Warangal',
-      district: 'Hanamkonda',
-      state: 'Telangana',
-      pincode: '506001',
-      formattedAddress: 'Kazipet - Hanamkonda Rd, Warangal, Telangana 506001',
-      status: 'success'
-    }));
-  };
-
-  const handleSimulateError = (errorType: 'permission_denied' | 'unavailable' | 'timeout' | 'resolution_failed' | 'network_error') => {
-    setSelectedOption('gps');
-    setIsLocationConfirmed(false);
-    
-    let msg = 'Unable to determine location.';
-    if (errorType === 'permission_denied') msg = 'Location access was not allowed.';
-    if (errorType === 'unavailable') msg = 'Your device location is unavailable.';
-    if (errorType === 'timeout') msg = "We couldn't get your location.";
-    if (errorType === 'resolution_failed') msg = "We found your location, but couldn't determine the area.";
-    if (errorType === 'network_error') msg = 'Unable to determine your location right now.';
-
-    setLocationState(locationService.normalizeLocation({
-      method: 'gps',
-      status: 'error',
-      errorType: errorType,
-      errorMessage: msg
-    }));
-  };
 
   const handleResetLocation = () => {
     setIsLocationConfirmed(false);
@@ -953,51 +916,6 @@ export const NearbyOfficesScreen: React.FC<NearbyOfficesScreenProps> = ({
           )}
 
 
-          {/* TESTING / DEMO CONTROLS PANEL FOR TESTING ALL GPS STATES IN IFRAME */}
-          {selectedOption === 'gps' && (
-            <div className="mt-1 pt-4 border-t border-dashed border-[#c3c6d1]">
-              <p className="text-[11px] font-bold uppercase tracking-wider text-[#74777f] mb-2">
-                Simulate Location States (For Preview/Testing)
-              </p>
-              <div className="flex flex-wrap gap-1.5">
-                <button
-                  type="button"
-                  onClick={handleSimulateGpsSuccess}
-                  className="px-2.5 py-1 bg-emerald-100 border border-emerald-300 text-emerald-900 rounded-lg text-[11px] font-semibold hover:bg-emerald-200"
-                >
-                  ✓ Simulate Success (Warangal)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleSimulateError('permission_denied')}
-                  className="px-2.5 py-1 bg-red-100 border border-red-300 text-red-900 rounded-lg text-[11px] font-semibold hover:bg-red-200"
-                >
-                  ! Permission Denied
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleSimulateError('unavailable')}
-                  className="px-2.5 py-1 bg-amber-100 border border-amber-300 text-amber-900 rounded-lg text-[11px] font-semibold hover:bg-amber-200"
-                >
-                  ! GPS Unavailable
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleSimulateError('timeout')}
-                  className="px-2.5 py-1 bg-amber-100 border border-amber-300 text-amber-900 rounded-lg text-[11px] font-semibold hover:bg-amber-200"
-                >
-                  ! Timeout
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleSimulateError('resolution_failed')}
-                  className="px-2.5 py-1 bg-purple-100 border border-purple-300 text-purple-900 rounded-lg text-[11px] font-semibold hover:bg-purple-200"
-                >
-                  ! Resolution Failure
-                </button>
-              </div>
-            </div>
-          )}
 
 
           {/* OPTION 2: ENTER PINCODE FLOW */}

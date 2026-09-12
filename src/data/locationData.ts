@@ -400,6 +400,14 @@ export const locationDataService = {
     if (!stateName || !districtName) return [];
     const stateData = LOCATION_INDEX.get(stateName.toLowerCase());
     if (!stateData) return [];
-    return stateData.citiesByDistrict.get(districtName.toLowerCase()) || [];
+    const dLower = districtName.toLowerCase().trim();
+    const exact = stateData.citiesByDistrict.get(dLower);
+    if (exact) return exact;
+    for (const [key, cities] of stateData.citiesByDistrict.entries()) {
+      if (key.includes(dLower) || dLower.includes(key)) {
+        return cities;
+      }
+    }
+    return [];
   }
 };

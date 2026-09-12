@@ -357,6 +357,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
                   inputMode="numeric"
                   maxLength={1}
                   value={digit}
+                  aria-label={`Verification code digit ${idx + 1}`}
                   onChange={(e) => handleOtpChange(idx, e.target.value)}
                   onKeyDown={(e) => handleOtpKeyDown(idx, e)}
                   className="w-11 h-12 sm:w-12 sm:h-12 text-center text-lg font-bold rounded-xl border border-[#737780] focus:border-[#005db6] focus:ring-2 focus:ring-[#005db6] text-[#001e40] bg-white focus:outline-none"

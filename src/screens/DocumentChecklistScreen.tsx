@@ -209,7 +209,7 @@ export const DocumentChecklistScreen: React.FC<DocumentChecklistScreenProps> = (
         <div className="bg-[#eef4ff] border border-[#005db6]/20 rounded-xl p-3.5 flex items-start gap-3 text-xs text-[#001e40]">
           <span className="material-symbols-outlined text-lg text-[#005db6] shrink-0 mt-0.5">lock</span>
           <div>
-            <strong className="font-bold">100% Private Self-Check:</strong> SmartSeva does not ask you to upload or scan files. You are only marking documents for your own visit preparation.
+            <strong className="font-bold">Client-Side Self-Check:</strong> SmartSeva does not ask you to upload or scan files. You are only marking documents for your own visit preparation.
           </div>
         </div>
 

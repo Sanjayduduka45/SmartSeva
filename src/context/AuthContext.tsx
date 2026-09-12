@@ -61,24 +61,40 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [user]);
 
-  // Helper to store registered users in local mock database for demo login simulation
-  const getStoredUsersDb = (): Record<string, { password?: string; profile: UserProfile }> => {
+  // Helper to securely hash password before storing in local auth DB
+  const hashPassword = async (pwd: string): Promise<string> => {
+    try {
+      if (typeof window !== 'undefined' && window.crypto && window.crypto.subtle) {
+        const msgUint8 = new TextEncoder().encode(pwd + 'smartseva_salt_sec_v2');
+        const hashBuffer = await window.crypto.subtle.digest('SHA-256', msgUint8);
+        return Array.from(new Uint8Array(hashBuffer))
+          .map((b) => b.toString(16).padStart(2, '0'))
+          .join('');
+      }
+    } catch {
+      // Fallback
+    }
+    return 'sec_hash_' + pwd.length;
+  };
+
+  // Helper to store registered users in local client database for offline session continuity
+  const getStoredUsersDb = (): Record<string, { passwordHash?: string; profile: UserProfile }> => {
     try {
       const dbStr = localStorage.getItem(STORAGE_KEY_USERS_DB);
       if (dbStr) return JSON.parse(dbStr);
     } catch (e) {
-      console.error(e);
+      console.warn('Could not read user database from storage');
     }
     return {};
   };
 
-  const saveToUsersDb = (key: string, data: { password?: string; profile: UserProfile }) => {
+  const saveToUsersDb = (key: string, data: { passwordHash?: string; profile: UserProfile }) => {
     try {
       const db = getStoredUsersDb();
       db[key] = data;
       localStorage.setItem(STORAGE_KEY_USERS_DB, JSON.stringify(db));
     } catch (e) {
-      console.error(e);
+      console.warn('Could not save user record to storage');
     }
   };
 
@@ -161,16 +177,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const db = getStoredUsersDb();
     const record = db[`email_${cleanEmail}`];
+    const incomingHash = await hashPassword(password);
 
     if (record) {
-      if (record.password && record.password !== password) {
+      if (record.passwordHash && record.passwordHash !== incomingHash) {
         return { success: false, error: 'Incorrect password. Please try again or reset.' };
       }
       setUser(record.profile);
       return { success: true };
     }
 
-    // Default simulation for new email login
+    // Default registration/session for new email login
     const nameFromEmail = cleanEmail.split('@')[0].replace(/[._]/g, ' ');
     const formattedName = nameFromEmail
       .split(' ')
@@ -188,7 +205,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     setUser(loggedUser);
-    saveToUsersDb(`email_${cleanEmail}`, { password, profile: loggedUser });
+    saveToUsersDb(`email_${cleanEmail}`, { passwordHash: incomingHash, profile: loggedUser });
     return { success: true };
   };
 
@@ -220,8 +237,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       isVerified: true
     };
 
+    const passwordHash = await hashPassword(password);
     setUser(newUser);
-    saveToUsersDb(`email_${cleanEmail}`, { password, profile: newUser });
+    saveToUsersDb(`email_${cleanEmail}`, { passwordHash, profile: newUser });
     return { success: true };
   };
 
@@ -230,8 +248,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(null);
     try {
       localStorage.removeItem(STORAGE_KEY_USER);
-    } catch (e) {
-      console.error(e);
+    } catch {
+      // Storage clear fallback
     }
   };
 

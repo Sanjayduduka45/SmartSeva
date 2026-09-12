@@ -98,7 +98,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onStart }) => {
         <div className="flex items-center gap-1.5">
           <span className="w-2 h-2 rounded-full bg-emerald-600 animate-pulse" />
           <span className="text-xs font-semibold text-[#43474f]">
-            100% Private • No File Uploads Required
+            Private Self-Check • No Document Uploads Required
           </span>
         </div>
         <p className="text-[11px] text-[#737780]">

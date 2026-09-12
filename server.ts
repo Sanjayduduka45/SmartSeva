@@ -1,16 +1,85 @@
 import express from 'express';
 import path from 'path';
 import { createServer as createViteServer } from 'vite';
+import { GoogleGenAI } from '@google/genai';
 import { officeService } from './src/services/officeService';
 import { FULL_SERVICES_CATALOG } from './src/data/localizedServices';
 import { locationDataService } from './src/data/locationData';
 import { LocationState, DocumentItem } from './src/types';
 
+// Lazy initialized Gemini client for server-side AI civic guidance
+let geminiClient: GoogleGenAI | null = null;
+function getGeminiClient(): GoogleGenAI | null {
+  if (!geminiClient && process.env.GEMINI_API_KEY) {
+    geminiClient = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+  }
+  return geminiClient;
+}
+
+// Lightweight in-memory rate limiting map
+interface RateLimitRecord {
+  count: number;
+  resetTime: number;
+}
+const rateLimitMap = new Map<string, RateLimitRecord>();
+
+// Periodic cleanup of expired rate limit keys every 5 minutes
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, record] of rateLimitMap.entries()) {
+    if (now > record.resetTime) {
+      rateLimitMap.delete(key);
+    }
+  }
+}, 300000);
+
+function createRateLimiter(maxRequests: number, windowMs: number) {
+  return (req: express.Request, res: express.Response, next: express.NextFunction) => {
+    const rawIp = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.socket.remoteAddress || '127.0.0.1';
+    const now = Date.now();
+    const record = rateLimitMap.get(rawIp) || { count: 0, resetTime: now + windowMs };
+
+    if (now > record.resetTime) {
+      record.count = 1;
+      record.resetTime = now + windowMs;
+    } else {
+      record.count += 1;
+    }
+    rateLimitMap.set(rawIp, record);
+
+    if (record.count > maxRequests) {
+      return res.status(429).json({
+        status: 'error',
+        error: 'Too many requests. Please slow down and try again.'
+      });
+    }
+    next();
+  };
+}
+
 async function startServer() {
   const app = express();
   const PORT = 3000;
 
-  app.use(express.json());
+  app.use(express.json({ limit: '100kb' }));
+
+  // CORS Configuration for Production and Preview
+  app.use((req, res, next) => {
+    const allowedOrigins = (process.env.CORS_ORIGIN || '*').split(',').map((o) => o.trim());
+    const origin = req.headers.origin;
+
+    if (allowedOrigins.includes('*') || (origin && allowedOrigins.includes(origin))) {
+      res.setHeader('Access-Control-Allow-Origin', origin || '*');
+    }
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+    res.setHeader('Access-Control-Max-Age', '86400');
+
+    if (req.method === 'OPTIONS') {
+      return res.sendStatus(204);
+    }
+    next();
+  });
 
   // Performance-optimized lean logger: records method, path, status, and duration only
   // Strictly avoids dumping payloads, user credentials, or large lists into production logs
@@ -18,11 +87,25 @@ async function startServer() {
     const start = Date.now();
     res.on('finish', () => {
       const duration = Date.now() - start;
-      if (req.path.startsWith('/api')) {
+      if (req.path.startsWith('/api') || req.path === '/health') {
         console.log(`[API ${req.method}] ${req.path} ${res.statusCode} (${duration}ms)`);
       }
     });
     next();
+  });
+
+  // Standard API Rate Limiter: 120 requests per minute per IP
+  const apiLimiter = createRateLimiter(120, 60000);
+  app.use('/api', apiLimiter);
+
+  // Health and Readiness Probes for Railway / Cloud Run
+  app.get(['/health', '/api/health'], (req, res) => {
+    res.status(200).json({
+      status: 'ok',
+      service: 'SmartSeva Production API',
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime()
+    });
   });
 
   // --- RELEVANT OFFICE SEARCH API ENDPOINT (GET) ---
@@ -381,6 +464,129 @@ async function startServer() {
       timestamp: new Date().toISOString(),
       uptime: process.uptime()
     });
+  });
+
+  // --- AI CIVIC GUIDANCE ENDPOINT (Strict Rate Limiting & Deterministic Safety) ---
+  const aiLimiter = createRateLimiter(20, 60000);
+  app.post('/api/ai/guidance', aiLimiter, async (req, res) => {
+    try {
+      const { service_id, serviceId, query } = req.body || {};
+      const targetId = String(service_id || serviceId || '').trim();
+
+      if (!targetId) {
+        return res.status(400).json({
+          status: 'error',
+          error: 'service_id is required.'
+        });
+      }
+
+      // Sanitize user query (prevent prompt injection, max 300 chars)
+      const userQuery = String(query || '')
+        .slice(0, 300)
+        .replace(/[<>{}\\]/g, '')
+        .trim();
+
+      const service = FULL_SERVICES_CATALOG.find((s) => s.id === targetId);
+      if (!service) {
+        return res.status(404).json({
+          status: 'error',
+          error: 'Service not found in official catalog.'
+        });
+      }
+
+      const deterministicGuidelines = {
+        requiredDocuments: service.documentsRequired || [],
+        processingTime: service.processingTime,
+        estCompletion: service.estCompletion,
+        eligibility: service.eligibility,
+        importantNotes: service.importantNotes
+      };
+
+      const fallbackAdvice = `For ${service.title}, ensure all original documents (${service.documentsRequired.slice(0, 3).join(', ')}) match your name and date of birth exactly. Carry 1 to 2 self-attested photocopies and visit during working hours.`;
+
+      const ai = getGeminiClient();
+      if (!ai) {
+        return res.json({
+          status: 'success',
+          serviceId: service.id,
+          serviceTitle: service.title,
+          advice: fallbackAdvice,
+          source: 'deterministic_rules',
+          guidelines: deterministicGuidelines
+        });
+      }
+
+      // Safe Gemini call with strict timeout
+      try {
+        const aiPromise = ai.models.generateContent({
+          model: 'gemini-2.5-flash',
+          contents: [
+            {
+              role: 'user',
+              parts: [
+                {
+                  text: `Citizen Question: ${userQuery || 'What documents and precautions do I need?'}\nService: ${service.title}\nOfficial Requirements: ${service.documentsRequired.join(', ')}\nEligibility: ${service.eligibility}`
+                }
+              ]
+            }
+          ],
+          config: {
+            systemInstruction:
+              'You are SmartSeva Official Civic Assistant for Indian Citizen Services. Provide concise (2 to 3 sentences, max 80 words), legally accurate document preparation advice. Deterministic departmental rules are paramount and must never be altered. Never ask for or accept OTPs, passwords, or personal credentials.',
+            maxOutputTokens: 150
+          }
+        });
+
+        // 7000ms strict timeout race
+        const timeoutPromise = new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('AI_TIMEOUT')), 7000)
+        );
+
+        const response: any = await Promise.race([aiPromise, timeoutPromise]);
+        const text = response.text ? response.text.trim() : fallbackAdvice;
+
+        return res.json({
+          status: 'success',
+          serviceId: service.id,
+          serviceTitle: service.title,
+          advice: text,
+          source: 'ai',
+          guidelines: deterministicGuidelines
+        });
+      } catch (aiErr: any) {
+        // Safe fallback without server disruption
+        return res.json({
+          status: 'success',
+          serviceId: service.id,
+          serviceTitle: service.title,
+          advice: fallbackAdvice,
+          source: 'deterministic_fallback',
+          guidelines: deterministicGuidelines
+        });
+      }
+    } catch (err: any) {
+      console.error('Error in /api/ai/guidance:', err?.message || err);
+      return res.status(500).json({
+        status: 'error',
+        error: 'An internal error occurred while generating guidance.'
+      });
+    }
+  });
+
+  // Catch-all 404 handler for undefined API routes (ensures JSON error instead of SPA HTML)
+  app.all('/api/*', (req, res) => {
+    return res.status(404).json({
+      status: 'error',
+      error: `API route ${req.method} ${req.path} not found.`
+    });
+  });
+
+  // Global Express Error Handling Middleware (prevents uncaught crashes and stack leakage)
+  app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+    console.error('[Production Server Error]:', err?.message || 'Unknown error');
+    if (!res.headersSent) {
+      res.status(500).json({ status: 'error', error: 'An unexpected error occurred. Please try again.' });
+    }
   });
 
   // Vite Middleware Setup
